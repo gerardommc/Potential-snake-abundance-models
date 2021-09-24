@@ -1,0 +1,185 @@
+---
+title: "Analysis of cross-validation tests"
+author: "Gerardo Martin"
+date: "11 de octubre de 2019"
+output:
+  pdf_document: default
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This is the cross validation analysis using the Partial ROC tests for the snake models. Data was partitioned spatially following a chessboard pattern with squares of 50km. For reference I show the tests performed to the models fitted with the full unpartitioned datasets. Each test was run at increasing omission thresholds to find if there is an optimum omission rate that maximises performance according to the Partial ROC tests. Each test was run with a 50% bagging and 1000 sampling iterations.
+
+```{r Reading data, echo = F}
+library(foreach); library(coda); library(ggplot2)
+
+tests.w <- lapply(list.files("Validation points/PartialROC/white/", "csv", full.names = T), read.csv)
+tests.b <- lapply(list.files("Validation points/PartialROC/black/", "csv", full.names = T), read.csv)
+tests.check <- lapply(list.files("../Partial ROC data/Results", "csv", full.names = T), read.csv)
+tests.dnc <- lapply(list.files("Validation points/PartialROC/DNC/", "csv", full.names = T), read.csv)
+tests.dnc.comp <- lapply(list.files("Validation points/PartialROC/DNC-comp/", "csv", full.names = T), read.csv)
+
+
+omission <- rep(seq(0.025, 0.9, by = 0.025), 7)
+species <- rep(c("Bungarus caeruleus", "Bungarus ceylonicus",
+                 "Daboia russelii", "Echis carinatus",
+                 "Hypnale spp.", "Naja naja",
+                 "Trimeresurus trigonocephalus"), each = 36)  
+```
+
+## Extracting the AUC ratios
+
+Here I extract the median of AUC ratios by species and omission rate. Then I assess statistical significance of the AUC ratios by calculating the proportion of ratios in each test run that are smaller than 1. For visualisation of variability I compute the confidence intervals with the `HPDinterval` function of the `coda` package at two levels, `0.95` and `0.68`.
+
+```{r Extracting results, echo = F}
+ratios.w <- foreach(i = seq_along(tests.w), .combine = rbind) %do% {
+      ratio = tests.w[[i]]$AUC_ratio
+      ratio = ratio[ratio <= 2]
+      Average_AUC = median(ratio)
+      significance = length(which(ratio < 1))/length(ratio)
+      lower = HPDinterval(as.mcmc(ratio), 0.95)[1]
+      upper = HPDinterval(as.mcmc(ratio), 0.95)[2]
+      lower.1 = HPDinterval(as.mcmc(ratio), 0.68)[1]
+      upper.1 = HPDinterval(as.mcmc(ratio), 0.68)[2]
+      return(c(AUC = Average_AUC, lower = lower, upper = upper, lower.1 = lower.1, upper.1 = upper.1, p = significance))
+}
+
+ratios.b <- foreach(i = seq_along(tests.b), .combine = rbind) %do% {
+      ratio = tests.b[[i]]$AUC_ratio
+      ratio = ratio[ratio <= 2]
+      Average_AUC = median(ratio)
+      significance = length(which(ratio < 1))/length(ratio)
+      lower = HPDinterval(as.mcmc(ratio), 0.95)[1]
+      upper = HPDinterval(as.mcmc(ratio), 0.95)[2]
+      lower.1 = HPDinterval(as.mcmc(ratio), 0.68)[1]
+      upper.1 = HPDinterval(as.mcmc(ratio), 0.68)[2]
+      return(c(AUC = Average_AUC, lower = lower, upper = upper, lower.1 = lower.1, upper.1 = upper.1, p = significance))
+}
+
+ratios.check <- foreach(i = seq_along(tests.check), .combine = rbind) %do% {
+      ratio = tests.check[[i]]$AUC_ratio
+      ratio = ratio[ratio <= 2]
+      Average_AUC = median(ratio)
+      significance = length(which(ratio < 1))/length(ratio)
+      lower = HPDinterval(as.mcmc(ratio), 0.95)[1]
+      upper = HPDinterval(as.mcmc(ratio), 0.95)[2]
+      lower.1 = HPDinterval(as.mcmc(ratio), 0.68)[1]
+      upper.1 = HPDinterval(as.mcmc(ratio), 0.68)[2]
+      return(c(AUC = Average_AUC, lower = lower, upper = upper, lower.1 = lower.1, upper.1 = upper.1, p = significance))
+}
+
+ratios.dnc <- foreach(i = seq_along(tests.dnc), .combine = rbind) %do% {
+      ratio = tests.dnc[[i]]$AUC_ratio
+      ratio = ratio[ratio <= 2]
+      Average_AUC = median(ratio)
+      significance = length(which(ratio < 1))/length(ratio)
+      lower = HPDinterval(as.mcmc(ratio), 0.95)[1]
+      upper = HPDinterval(as.mcmc(ratio), 0.95)[2]
+      lower.1 = HPDinterval(as.mcmc(ratio), 0.68)[1]
+      upper.1 = HPDinterval(as.mcmc(ratio), 0.68)[2]
+      return(c(AUC = Average_AUC, lower = lower, upper = upper, lower.1 = lower.1, upper.1 = upper.1, p = significance))
+}
+
+ratios.dnc.1 <- foreach(i = seq_along(tests.dnc.comp), .combine = rbind) %do% {
+      ratio = tests.dnc.comp[[i]]$AUC_ratio
+      ratio = ratio[ratio <= 2]
+      Average_AUC = median(ratio)
+      significance = length(which(ratio < 1))/length(ratio)
+      lower = HPDinterval(as.mcmc(ratio), 0.95)[1]
+      upper = HPDinterval(as.mcmc(ratio), 0.95)[2]
+      lower.1 = HPDinterval(as.mcmc(ratio), 0.68)[1]
+      upper.1 = HPDinterval(as.mcmc(ratio), 0.68)[2]
+      return(c(AUC = Average_AUC, lower = lower, upper = upper, lower.1 = lower.1, upper.1 = upper.1, p = significance))
+}
+
+ratios.w <- data.frame(ratios.w)
+ratios.b <- data.frame(ratios.b)
+ratios.check <- data.frame(ratios.check)
+ratios.dnc <- data.frame(ratios.dnc)
+ratios.dnc.1 <- data.frame(ratios.dnc.1)
+
+ratios.w$sp <- species
+ratios.b$sp <- species
+ratios.check$sp <- species
+ratios.dnc$sp <- species
+ratios.dnc.1$sp <- species
+
+
+ratios.w$model <- "Partition-1"
+ratios.b$model <- "Partition-2"
+ratios.check$model <- "Full"
+ratios.dnc$model <- "DNC-bioclim"
+ratios.dnc.1$model <- "DNC-comp"
+
+
+ratios.w$omis <- omission
+ratios.b$omis <- omission
+ratios.check$omis <- omission
+ratios.dnc$omis <- omission
+ratios.dnc.1$omis <- omission
+
+ratios <- rbind(ratios.w, ratios.b, ratios.check, ratios.dnc, ratios.dnc.1)
+```
+
+# Plots of the results
+
+Here I show how the performance of the model changed with the omission rate to assess visually the optimal cutoff value (omission rate in the *x* axis and ratio (performance) in the *y* axis). The colour of the dots indicates the proportion of AUC ratios that were < 1, which is interpreted as statistical significance (AUC ratio significantly different from zero).
+
+```{r fig.height=12, fig.width=12}
+ggplot(ratios) + geom_point(aes(x = omis, y = AUC, colour = as.factor(model))) + 
+      geom_line(aes(x = omis, y = AUC, colour = as.factor(model)), alpha = 0.3) +
+      geom_ribbon(aes(x = omis, ymin = lower, ymax = upper, fill = as.factor(model)), alpha = 0.1) +
+      geom_ribbon(aes(x = omis, ymin = lower.1, ymax = upper.1, fill = as.factor(model)), alpha = 0.1) +
+      facet_wrap(facets = "sp") +
+      labs(colour = "Partitions", fill = "Partitions", x = "Omission rate", y = "AUC ratio") +
+      theme(strip.text.x = element_text(face = "italic"))
+```
+
+
+These plots display the AUC ratio estimates as a function of the omission rate. In all cases AUC ratios decrease in an accelerating fashion to increasing values of the omission rate. The shaded areas show the 95 and 68% confidence intervals at each of the points where AUC ratios were estimated. The colour scale of the points indicates whether AUC ratios were significantly greater than 1, that is, the probability that the test estimated an AUC ratio smaller than 1. In all cases `p = 0`, which means that all of the estimated ratios were above the random prediction threshold.
+
+Finally, looks like in all cases, the 0.05 omission threshold is optimal. To wrap it up, it makes sense to use as threshold the 5th percentile of suitability estimates for presence locations.
+
+```{r Separating data by species, echo = F}
+bun.cey <- subset(ratios, sp == "Bungarus ceylonicus")
+bun.cae <- subset(ratios, sp == "Bungarus caeruleus" )
+dab.rus <- subset(ratios, sp == "Daboia russelii")
+ech.car <- subset(ratios, sp == "Echis carinatus")
+hyp.spp <- subset(ratios, sp == "Hypnale spp.")
+naj.naj <- subset(ratios, sp == "Naja naja")
+tri.tri <- subset(ratios, sp == "Trimeresurus trigonocephalus")
+```
+
+
+```{r}
+library(dplyr)
+
+d.perf <- ratios %>% group_by(sp,
+                              model) %>% summarise(
+                                    AUC = max(AUC))
+
+p <- c()
+om <-c()
+
+for(i in 1:nrow(d.perf)){
+      p[i] <- ratios$p[with(ratios,
+                   which(AUC == d.perf$AUC[i] &
+                        sp == d.perf$sp[i] &
+                        model == d.perf$model[i]))]
+      om[i] <- ratios$omis[with(ratios,
+                   which(AUC == d.perf$AUC[i] &
+                        sp == d.perf$sp[i] &
+                        model == d.perf$model[i]))]
+}
+
+d.perf$p <- p
+d.perf$omis <- om
+
+write.csv(d.perf, "Omission-rates-cross-valid.csv")
+
+print(as.data.frame(d.perf))
+```
