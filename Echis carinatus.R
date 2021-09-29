@@ -1,14 +1,16 @@
-library(raster); library(rgdal); library(spatstat); library(doParallel); library(spatial.tools)
+library(raster); library(rgdal); library(spatstat); library(doParallel)
 
 #Reading the data
-snake.data <- readRDS("Data objects/Snake ppm/Snake-pres-back-data.rds")[[2]]
-names(snake.data)[1] <- "Bungarus caeruleus"
+sp.names <- c("Bungarus caeruleus", "Bungarus ceylonicus",         
+              "Daboia russellii", "Echis carinatus",
+              "Hypnale spp", "Naja naja",
+              "Trimeresurus trigonocephalus")
 
-dnc <- stack(list.files("Snakes Fundamental niches/Niches/Distances/", pattern = "SLD99.tif", full.names = T))
+dnc <- stack(list.files("Niches/Distances/", pattern = "SLD99.tif", full.names = T))
 
-snakes <- lapply(paste0("Snake shapefiles/Filtered/", names(snake.data), "-5500.csv"),read.csv)#.csv-1000
+snakes <- lapply(paste0("Filtered-occurrences/", sp.names, "-5500.csv"),read.csv)#.csv-1000
 
-arb.df <- readRDS("Data objects/Snake ppm/Arboreal-species-env-data.rds")
+arb.df <- readRDS("Environmental-data/Full-env-data.rds")
 
 dnc.df <- data.frame(extract(dnc, arb.df[, c("x", "y")]))
 
@@ -16,7 +18,7 @@ arb.df <- na.omit(data.frame(arb.df, dnc.df))
 
 #### Distance to cities and roads
 
-roads <- readOGR("Popn and topo data/Roads/LKA_roads.shp")
+roads <- readOGR("Environmental-data/Roads/LKA_roads.shp")
 roads <- spTransform(roads, CRSobj = CRS("+init=epsg:5235"))
 
 roads.r <- rasterize(roads, dnc[[1]])
@@ -52,7 +54,7 @@ proj4string(arb.r) <- CRS("+init=epsg:5235")
 proj4string(m) <- CRS("+init=epsg:5235")
 
 
-m <- spatial_sync_raster(m, arb.r)
+m <- resample(m, arb.r)
 
 arb.r <- mask(stack(arb.r), m)
 
@@ -212,7 +214,7 @@ aic.best <- sapply(best.models, AIC)
 
 for(i in seq_along(best.models)){
       plot(raster(predict(best.models[[i]], covariates = pred.list.arb, type = "trend", ngrid = c(469, 267))),
-           main = paste(names(snake.data)[4], i, best.10[i], sep = " "))
+           main = paste(sp.names[4], i, best.10[i], sep = " "))
 }
 
 best.models <- best.models[c(1, 2, 3, 4, 5, 6, 7)]
@@ -229,7 +231,7 @@ ppm.lenv <- lapply(best.models, function(x){
             savepatterns = T, correction = "border")})
 
 par(mar = c(2,2,2,2))
-pdf("~/Imágenes/L-function-envelopes-Echis.pdf", width = 6, height = 6)
+pdf("Stat-validation/L-function-envelopes-Echis.pdf", width = 6, height = 6)
 for(i in seq_along(best.models)){
    plot(ppm.lenv[[i]], main = "Echis carinatus PPM")
 }
@@ -241,7 +243,7 @@ ppm.kenv <- lapply(best.models, function(x){
             savepatterns = T, correction = "border")})
 
 par(mar = c(2,2,2,2))
-pdf("~/Imágenes/K-function-envelopes-Echis.pdf", width = 6, height = 6)
+pdf("Stat-validation/K-function-envelopes-Echis.pdf", width = 6, height = 6)
 for(i in seq_along(best.models)){
    plot(ppm.kenv[[i]], main = "Echis carinatus PPM")
 }
@@ -251,7 +253,7 @@ dev.off()
 ppm.kres <- lapply(best.models, function(x){Kres(x, nsim = 39, correction = "border")})
 
 par(mar = c(2, 2, 2, 2))
-pdf("~/Imágenes/K-function-residuals.pdf", width = 6, height = 6)
+pdf("Stat-validation/K-function-residuals.pdf", width = 6, height = 6)
 for(i in  seq_along(best.models)){
    plot(ppm.kres[[i]], main = "Echis carinatus Poisson")
 }
@@ -260,7 +262,7 @@ dev.off()
 # Residuals
 
 par(mar = c(2,2,2,2))
-pdf("~/Imágenes/Pearson-resids-lurking-Echis.pdf", width = 6, height = 9)
+pdf("Stat-validation/Pearson-resids-lurking-Echis.pdf", width = 6, height = 9)
 for(i in seq_along(best.models)){
    diagnose.ppm(best.models[[i]], type = "Pearson", 
                 envelope = ppm.lenv[[i]], nsim = 39, 
@@ -269,6 +271,6 @@ for(i in seq_along(best.models)){
 }
 dev.off()
 
-saveRDS(best.models, "Snakes Fundamental niches/PPMs/Echis-best-ppms.rds")
+saveRDS(best.models, "PPM-results/Echis-best-ppms.rds")
 
-writeRaster(raster(preds[[1]]), "Snakes Fundamental niches/PPMs/Raster predictions/Echis carinatus-PPM-model.tif", "GTiff", overwrite = T)
+writeRaster(raster(preds[[1]]), "PPM-results/Raster predictions/Echis carinatus-PPM-model.tif", "GTiff", overwrite = T)

@@ -1,26 +1,28 @@
 library(raster); library(rgdal); library(spatstat); library(doParallel)
 
 #Reading the data
-snake.data <- readRDS("Data objects/Snake ppm/Snake-pres-back-data.rds")[[2]]
-names(snake.data)[1] <- "Bungarus caeruleus"
+sp.names <- c("Bungarus caeruleus", "Bungarus ceylonicus",         
+              "Daboia russellii", "Echis carinatus",
+              "Hypnale spp", "Naja naja",
+              "Trimeresurus trigonocephalus")
 
-dnc <- lapply(list.files("Snakes Fundamental niches/Niches/Distances-1/", pattern = "SLD99.tif", full.names = T), raster)
-dnc.1 <- lapply(list.files("Snakes Fundamental niches/Niches/Distances/", pattern = "SLD99.tif", full.names = T), raster)
+dnc <- lapply(list.files("Niches/Distances-1/", pattern = "SLD99.tif", full.names = T), raster)
+dnc.1 <- lapply(list.files("Niches/Distances/", pattern = "SLD99.tif", full.names = T), raster)
 
 dnc[[7]] <- dnc.1[[7]]
 
 dnc <- stack(dnc)
 
-snakes <- lapply(paste0("Snake shapefiles/Filtered/", names(snake.data), "-5500.csv"),read.csv)
-names(snakes) <- names(snake.data)
+snakes <- lapply(paste0("Filtered-occurrences/", sp.names, "-5500.csv"),read.csv)
+names(snakes) <- sp.names
 
-arb.df <- readRDS("Data objects/Snake ppm/Arboreal-species-env-data.rds")
+arb.df <- readRDS("Environmental-data/Full-env-data.rds")
 
 dnc.df <- data.frame(extract(dnc, arb.df[, c("x", "y")]))
 
 arb.df <- na.omit(data.frame(arb.df, dnc.df))
 
-roads <- readOGR("Popn and topo data/Roads/LKA_roads.shp")
+roads <- readOGR("Environmental-data/Roads/LKA_roads.shp")
 roads <- spTransform(roads, CRSobj = CRS("+init=epsg:5235"))
 
 roads.r <- rasterize(roads, dnc[[1]])
@@ -71,7 +73,7 @@ Q <- foreach(i = seq_along(snakes)) %do% {
       quadscheme(data = ppp.dat[[i]], dummy = quads, method = "grid",
                  ntile = c(nx, ny), npix = c(nx, ny))
 }  
-names(Q) <- names(snake.data)
+names(Q) <- sp.names
 
 #############################################
 #####Formatting lists of spatstat images#####
@@ -190,7 +192,7 @@ convergence <- data.frame(B.cae = sapply(models[[1]], function(x){summary(x)$con
 
 best.conv <- foreach(i = 1:7, .combine = c) %do% {convergence[best[i], i]}
 
-write.csv(aic, "Snakes Fundamental niches/Full-ppms-AIC.csv")
+write.csv(aic, "PPM-results/Full-ppms-AIC.csv")
 
 lowest.aic <- apply(aic, 1, which.min)
 
@@ -207,11 +209,10 @@ best.conv[[4]] <- 5
 
 best.models <- foreach(i = seq_along(models.conv)) %do% {models.conv[[i]][[best.conv[[i]]]]}
 
-names(best.models) <- names(snake.data)
+names(best.models) <- sp.names
 
 summaries <- foreach(i = seq_along(best.models)) %do% {summary(best.models[[i]])}
 names(summaries) <- names(best.models)
-saveRDS(summaries, "All-species-ai-models-summaries.rds")
 
 ### Extracting Model formulas
 
@@ -251,7 +252,7 @@ ai.lenv <- lapply(models.ai, function(x){
                                  savepatterns = T, correction = "border")})
 
 par(mar = c(2,2,2,2))
-pdf("~/Imágenes/L-function-envelopes.pdf", width = 9, height = 6)
+pdf("Stat-validation/L-function-envelopes.pdf", width = 9, height = 6)
 for(i in c(1, 2, 3, 5, 6, 7)){
    par(mfrow = c(1, 2))
    plot(ppm.lenv[[i]], main = paste0(names(snakes)[i], " PPM"))
@@ -268,7 +269,7 @@ ai.kenv <- lapply(models.ai, function(x){
             savepatterns = T, correction = "border")})
 
 par(mar = c(2,2,2,2))
-pdf("~/Imágenes/K-function-envelopes.pdf", width = 9, height = 6)
+pdf("Stat-validation/K-function-envelopes.pdf", width = 9, height = 6)
 for(i in c(1, 2, 3, 5, 6, 7)){
    par(mfrow = c(1, 2))
    plot(ppm.kenv[[i]], main = paste0(names(snakes)[i], " PPM"))
@@ -281,7 +282,7 @@ ppm.kres <- lapply(best.models, function(x){Kres(x, nsim = 39, correction = "bor
 ai.kres <- lapply(models.ai, function(x){Kres(x, nsim = 39, correction = "border")})
 
 par(mar = c(2, 2, 2, 2))
-pdf("~/Imágenes/K-function-residuals.pdf", width = 9, height = 6)
+pdf("Stat-validation/K-function-residuals.pdf", width = 9, height = 6)
 for(i in c(1, 2, 3, 5, 6, 7)){
    par(mfrow = c(1, 2))
    plot(ppm.kres[[i]], main = paste0(names(snakes)[i], " Poisson"))
@@ -294,7 +295,7 @@ ppm.gres <- lapply(best.models, function(x){Gres(x, nsim = 39, correction = "bor
 ai.gres <- lapply(models.ai, function(x){Gres(x, nsim = 39, correction = "border")})
 
 par(mar = c(2, 2, 2, 2))
-pdf("~/Imágenes/G-function-residuals.pdf", width = 9, height = 6)
+pdf("Stat-validation/G-function-residuals.pdf", width = 9, height = 6)
 for(i in c(1, 2, 3, 5, 6, 7)){
    par(mfrow = c(1, 2))
    plot(ppm.gres[[i]], main = paste0(names(snakes)[i], " Poisson"))
@@ -305,16 +306,16 @@ dev.off()
 # Residuals
 
 par(mar = c(1,1,1,1))
-pdf("~/Imágenes/Pearson-resids-lurking.pdf", width = 12, height = 9)
+pdf("Stat-validation/Pearson-resids-lurking.pdf", width = 12, height = 9)
 par(mfrow = c(1,2))
 for(i in c(1, 2, 3, 5, 6, 7)){
       diagnose.ppm(models.ai[[i]], type = "Pearson", 
                    envelope = ppm.lenv[[i]], nsim = 39, 
-                   main = paste0(names(snake.data)[i], ", Area-Inter"))
+                   main = paste0(sp.names[i], ", Area-Inter"))
    
       diagnose.ppm(best.models[[i]], type = "Pearson", 
                    envelope = ai.lenv[[i]], nsim = 39, 
-                   main = paste0(names(snake.data)[i], ", Poisson"))
+                   main = paste0(sp.names[i], ", Poisson"))
 }
 dev.off()
 
@@ -324,21 +325,21 @@ dev.off()
 par(mfrow = c(1,3))
 for(i in seq_along(best.models)){
       plot(predict(models.lgcp[[i]], covariates = pred.list.arb, type = "trend", ngrid = c(469, 267)),
-        main = paste0(names(snake.data)[i], ", LGCP"))
+        main = paste0(sp.names[i], ", LGCP"))
       plot(Q[[i]], add = T, pch = "+", col = "lightgrey")
       plot(predict(models.ai[[i]], covariates = pred.list.arb, type = "trend", ngrid = c(469, 267)),
-           main = paste0(names(snake.data)[i], ", Area-Inter"))
+           main = paste0(sp.names[i], ", Area-Inter"))
       plot(Q[[i]], add = T, pch = "+", col = "lightgrey")
       plot(predict(best.models[[i]], covariates = pred.list.arb, type = "trend", ngrid = c(469, 267)),
-           main = paste0(names(snake.data)[i], ", Poisson"))
+           main = paste0(sp.names[i], ", Poisson"))
       plot(Q[[i]], add = T, pch = "+", col = "lightgrey")
 }
 
-dir.create("Snakes Fundamental niches/PPMs")
+dir.create("PPM-results/")
 
 for(i in c(1, 2, 3, 5, 6, 7)){
-      saveRDS(best.models[[i]], paste0("Snakes Fundamental niches/PPMs/", names(snake.data)[i], "-PPM.rds"))
-      saveRDS(models.ai[[i]], paste0("Snakes Fundamental niches/PPMs/", names(snake.data)[i],"-AI.rds"))
+      saveRDS(best.models[[i]], paste0("PPM-results/", sp.names[i], "-PPM.rds"))
+      saveRDS(models.ai[[i]], paste0("PPM-results/", sp.names[i],"-AI.rds"))
 }
 
 
@@ -371,19 +372,19 @@ plot(sum(aggregate(stack(ai.preds), 5, sum)))
 plot(sum(aggregate(stack(ppm.preds), 5, sum)))
 plot(sum(aggregate(stack(lgcp.preds), 5, sum)))
 
-dir.create("Snakes Fundamental niches/PPMs/Raster predictions")
+dir.create("PPM-results/Raster predictions")
 
 for(i in c(1, 2, 3, 5, 6, 7)){
       writeRaster(ai.preds[[i]], 
-                  paste0("Snakes Fundamental niches/PPMs/Raster predictions/", 
-                         names(snake.data)[i], "-AI-model"),
+                  paste0("PPM-results/Raster predictions/", 
+                         sp.names[i], "-AI-model"),
                   "GTiff", overwrite = T)
 }
 
 for(i in c(1, 2, 3, 5, 6, 7)){
       writeRaster(ppm.preds[[i]], 
-                  paste0("Snakes Fundamental niches/PPMs/Raster predictions/", 
-                         names(snake.data)[i], "-PPM-model"),
+                  paste0("PPM-results/Raster predictions/", 
+                         sp.names[i], "-PPM-model"),
                   "GTiff", overwrite = T)
 }
 
