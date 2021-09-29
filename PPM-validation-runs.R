@@ -1,21 +1,24 @@
 library(raster); library(dismo); library(rgdal); library(spatstat); library(doParallel)
 
 #Reading the data
-snake.data <- readRDS("Data objects/Snake ppm/Snake-pres-back-data.rds")[[2]]
-names(snake.data)[1] <- "Bungarus caeruleus"
 
-dnc <- stack(list.files("Snakes Fundamental niches/Niches/Final-dists", pattern = "SLD99.tif", full.names = T))
+sp.names <- c("Bungarus caeruleus", "Bungarus ceylonicus",         
+              "Daboia russellii", "Echis carinatus",
+              "Hypnale spp", "Naja naja",
+              "Trimeresurus trigonocephalus")
 
-snakes <- lapply(paste0("Snake shapefiles/Filtered/", names(snake.data), "-5500.csv"),read.csv)
-names(snakes) <- names(snake.data)
+dnc <- stack(list.files("Niches/Final-dists", pattern = "SLD99.tif", full.names = T))
 
-arb.df <- readRDS("Data objects/Snake ppm/Arboreal-species-env-data.rds")
+snakes <- lapply(paste0("Filtered-occurrences/", sp.names, "-5500.csv"),read.csv)
+names(snakes) <- sp.names
+
+arb.df <- readRDS("Environmental-data/Full-env-data.rds")
 
 dnc.df <- data.frame(extract(dnc, arb.df[, c("x", "y")]))
 
 arb.df <- na.omit(data.frame(arb.df, dnc.df))
 
-roads <- readOGR("Popn and topo data/Roads/LKA_roads.shp")
+roads <- readOGR("Environmental-data/Roads/LKA_roads.shp")
 roads <- spTransform(roads, CRSobj = CRS("+init=epsg:5235"))
 
 roads.r <- rasterize(roads, dnc[[1]])
@@ -40,8 +43,8 @@ black <- lapply(snakes, function(x){gridSample(x, r = dnc,  n = 1, chess = "blac
 
 
 for(i in 1:7){
-      write.csv(white[[i]], paste0("Snakes Fundamental niches/Validation points/", names(snakes)[i], "-white.csv"))
-      write.csv(black[[i]], paste0("Snakes Fundamental niches/Validation points/", names(snakes)[i], "-black.csv"))
+      write.csv(white[[i]], paste0("Validation points/", names(snakes)[i], "-white.csv"))
+      write.csv(black[[i]], paste0("Validation points/", names(snakes)[i], "-black.csv"))
 }
 
 #Formatting the data
@@ -87,8 +90,8 @@ Q.b <- foreach(i = seq_along(black)) %do% {
                  ntile = c(nx, ny), npix = c(nx, ny))
 } 
 
-names(Q.w) <- names(snake.data)
-names(Q.b) <- names(snake.data)
+names(Q.w) <- sp.names
+names(Q.b) <- sp.names
 
 #############################################
 #####Formatting lists of spatstat images#####
@@ -277,17 +280,17 @@ t.tri.b.r <- raster(predict(t.tri.b, covariates = pred.list.arb,
 #Saving rasters
 
 #White
-writeRaster(b.cae.w.r, "Snakes Fundamental niches/Validation points/white/Bungarus_caeruleus-white.asc", "ascii", overwrite = T)
-writeRaster(b.cey.w.r, "Snakes Fundamental niches/Validation points/white/Bungarus_ceylonicus-white.asc", "ascii", overwrite = T)
-writeRaster(d.rus.w.r, "Snakes Fundamental niches/Validation points/white/Daboia_russelii-white.asc", "ascii", overwrite = T)
-writeRaster(h.spp.w.r, "Snakes Fundamental niches/Validation points/white/Hypnale_spp-white.asc", "ascii", overwrite = T)
-writeRaster(n.naj.w.r, "Snakes Fundamental niches/Validation points/white/Naja_naja-white.asc", "ascii", overwrite = T)
-writeRaster(t.tri.w.r, "Snakes Fundamental niches/Validation points/white/Trimeresurus_trigonocephalus-white.asc", "ascii", overwrite = T)
+writeRaster(b.cae.w.r, "Validation points/white/Bungarus_caeruleus-white.asc", "ascii", overwrite = T)
+writeRaster(b.cey.w.r, "Validation points/white/Bungarus_ceylonicus-white.asc", "ascii", overwrite = T)
+writeRaster(d.rus.w.r, "Validation points/white/Daboia_russelii-white.asc", "ascii", overwrite = T)
+writeRaster(h.spp.w.r, "Validation points/white/Hypnale_spp-white.asc", "ascii", overwrite = T)
+writeRaster(n.naj.w.r, "Validation points/white/Naja_naja-white.asc", "ascii", overwrite = T)
+writeRaster(t.tri.w.r, "Validation points/white/Trimeresurus_trigonocephalus-white.asc", "ascii", overwrite = T)
 
 #black
-writeRaster(b.cae.b.r, "Snakes Fundamental niches/Validation points/black/Bungarus_caeruleus-black.asc", "ascii", overwrite = T)
-writeRaster(b.cey.b.r, "Snakes Fundamental niches/Validation points/black/Bungarus_ceylonicus-black.asc", "ascii", overwrite = T)
-writeRaster(d.rus.b.r, "Snakes Fundamental niches/Validation points/black/Daboia_russelii-black.asc", "ascii", overwrite = T)
-writeRaster(h.spp.b.r, "Snakes Fundamental niches/Validation points/black/Hypnale_spp-black.asc", "ascii", overwrite = T)
-writeRaster(n.naj.b.r, "Snakes Fundamental niches/Validation points/black/Naja_naja-black.asc", "ascii", overwrite = T)
-writeRaster(t.tri.b.r, "Snakes Fundamental niches/Validation points/black/Trimeresurus_trigonocephalus-black.asc", "ascii", overwrite = T)
+writeRaster(b.cae.b.r, "Validation points/black/Bungarus_caeruleus-black.asc", "ascii", overwrite = T)
+writeRaster(b.cey.b.r, "Validation points/black/Bungarus_ceylonicus-black.asc", "ascii", overwrite = T)
+writeRaster(d.rus.b.r, "Validation points/black/Daboia_russelii-black.asc", "ascii", overwrite = T)
+writeRaster(h.spp.b.r, "Validation points/black/Hypnale_spp-black.asc", "ascii", overwrite = T)
+writeRaster(n.naj.b.r, "Validation points/black/Naja_naja-black.asc", "ascii", overwrite = T)
+writeRaster(t.tri.b.r, "Validation points/black/Trimeresurus_trigonocephalus-black.asc", "ascii", overwrite = T)

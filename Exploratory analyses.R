@@ -2,20 +2,22 @@
 
 library(raster); library(rgdal); library(spatstat); library(doParallel)
 
-sla <- readOGR("Popn and topo data/Sri Lanka boundaries/LKA_adm0.shp")
+sla <- readOGR("Environmental-data/Sri Lanka boundaries/LKA_adm0.shp")
 
 #Reading the data
-snake.data <- readRDS("Data objects/Snake ppm/Snake-pres-back-data.rds")[[2]]
-names(snake.data)[1] <- "Bungarus caeruleus"
+sp.names <- c("Bungarus caeruleus", "Bungarus ceylonicus",         
+              "Daboia russellii", "Echis carinatus",
+              "Hypnale spp", "Naja naja",
+              "Trimeresurus trigonocephalus")
 
 
-snakes <- lapply(paste0("Snake shapefiles/Filtered/", names(snake.data), "-5500.csv"),read.csv)
-names(snakes) <- names(snake.data)
+snakes <- lapply(paste0("Filtered-occurrences/", sp.names, "-5500.csv"),read.csv)
+names(snakes) <- sp.names
 
-arb.df <- readRDS("Data objects/Snake ppm/Arboreal-species-env-data.rds")
+arb.df <- readRDS("Environmental-data/Full-env-data.rds")
 
 #Formatting DNC data (strictly based on components)
-dnc <- stack(list.files("Snakes Fundamental niches/Niches/Distances-1/", pattern = "SLD99.tif", full.names = T))
+dnc <- stack(list.files("Niches/Distances-1/", pattern = "SLD99.tif", full.names = T))
 dnc.df <- data.frame(extract(dnc, arb.df[, c("x", "y")]))
 
 arb.df <- na.omit(data.frame(arb.df, dnc.df))
@@ -62,7 +64,7 @@ Q <- foreach(i = seq_along(snakes)) %do% {
       quadscheme(data = ppp.dat[[i]], dummy = quads, method = "grid",
                  ntile = c(nx, ny), npix = c(nx, ny))
 }
-names(Q) <- names(snake.data)
+names(Q) <- sp.names
 
 
 X.arb <- with(arb.df,

@@ -19,7 +19,7 @@ library(foreach); library(coda); library(ggplot2)
 
 tests.w <- lapply(list.files("Validation points/PartialROC/white/", "csv", full.names = T), read.csv)
 tests.b <- lapply(list.files("Validation points/PartialROC/black/", "csv", full.names = T), read.csv)
-tests.check <- lapply(list.files("../Partial ROC data/Results", "csv", full.names = T), read.csv)
+tests.check <- lapply(list.files("Partial ROC data/Results", "csv", full.names = T), read.csv)
 tests.dnc <- lapply(list.files("Validation points/PartialROC/DNC/", "csv", full.names = T), read.csv)
 tests.dnc.comp <- lapply(list.files("Validation points/PartialROC/DNC-comp/", "csv", full.names = T), read.csv)
 

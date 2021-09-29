@@ -1,13 +1,11 @@
-library(raster); library(spatial.tools); library(foreach); library(readODS)
+library(raster); library(foreach); library(readODS)
 library(rgdal)
 
-load("Data objects/Correlation tests.RData")
-
 ind <- read.csv("Agressivenes-indices.csv")
-snake.pars <- read_ods("../Questionnaires/Parameters-questions.ods",
+snake.pars <- read_ods("Parameters-questions.ods",
                        sheet = 2)
 
-snake.models <- lapply(list.files("Snakes Fundamental niches/PPMs/Raster predictions/Best" ,"tif", full.names = T), raster)
+snake.models <- lapply(list.files("PPM-results/Raster predictions/Best" ,"tif", full.names = T), raster)
 ech <- snake.models[[4]]
 proj4string(ech) <- CRS("+init=epsg:5235")
 proj4string(snake.models[[1]]) <- CRS("+init=epsg:5235")
@@ -25,8 +23,8 @@ max.snakes <- cellStats(snake.stack, max)
 snake.stack.ab <- snake.stack / max.snakes * snake.pars$Density_1k
 
 ###
-snakebites <- raster("Popn and topo data/Snakebites/snakebites.tif")
-envenoming <- raster("Popn and topo data/Snakebites/envenoming_bites.tif")
+snakebites <- raster("Snakebite-data/snakebite.tif")
+envenoming <- raster("Snakebite-data/envenoming.tif")
 
 proj4string(snakebites) <- CRS("+init=epsg:4326")
 snakebites.sld <- projectRaster(snakebites, crs = CRS(proj4string(ech)))
@@ -285,105 +283,6 @@ bite.ttest.nw <- modified.ttest(bite.nw, bites.df$snakebites, bites.df[, c("x", 
 env.ttest.nw <- modified.ttest(env.nw, env.df$envenoming_bites, env.df[, c("x", "y")])
 
 
-bite.ttest$corr
-bite.ab.ttest$corr
-env.ttest$corr
-env.ab.ttest$corr
-
-bites.cor.results <- na.omit(data.frame(bites.df, envenomings = env.df$envenoming_bites, bite, env, bite.ab, env.ab))
-
-jet.2 <- colorRampPalette(c("navy","forestgreen", "darkgoldenrod1", "indianred2"))
-
-library(ggplot2)
-
-png("~/MEGAsync/Snakebite modelling manuscripts/Snake distributions models/Bites.png", width = 300, height = 300)
-ggplot(bites.cor.results) + geom_hex(aes(x = bite, y = snakebites)) +
-      scale_fill_gradientn(colours = jet.2(100), guide = F) +
-      labs(x = "Aggressiveness weighted", y = "Snakebite incidence", fill = "")
-dev.off()
-
-png("~/MEGAsync/Snakebite modelling manuscripts/Snake distributions models/Envs.png", width = 300, height = 300)
-ggplot(bites.cor.results) + geom_hex(aes(x = log(env), y = envenomings))+
-      scale_fill_gradientn(colours = jet.2(100), guide = F) +
-      labs(x = "Aggressiveness weighted", y = "Envenoming incidence", fill = "")
-dev.off()
-
-png("~/MEGAsync/Snakebite modelling manuscripts/Snake distributions models/Bites-ab.png", width = 300, height = 300)
-ggplot(bites.cor.results) + geom_hex(aes(x =bite.ab, y = snakebites)) +
-      scale_fill_gradientn(colours = jet.2(100), guide = F) +
-      labs(x = "Aggressiveness weighted & adjusted", y = "Snakebite incidence", fill = "")
-dev.off()
-
-png("~/MEGAsync/Snakebite modelling manuscripts/Snake distributions models/Envs-ab.png", width = 300, height = 300)
-ggplot(bites.cor.results) + geom_hex(aes(x = env.ab, y = envenomings))+
-      scale_fill_gradientn(colours = jet.2(100), guide = F) +
-      labs(x = "Severity weighted & adjusted", y = "Envenoming incidence", fill = "")
-dev.off()
-
-##Plots of combined models for publication
-sla <- readOGR("Popn and topo data/Sri Lanka boundaries/LKA_adm0.shp")
-sla <- spTransform(sla, CRSobj = crs("+init=epsg:5235"))
-
-combined.layers <- data.frame(rasterToPoints(aggregate(stack(list(bite.r, env.r, bite.ab.r, env.ab.r)), 3, sum)))
-
-popn.cols <- colorRampPalette(rev(c("midnightblue",
-                                    "turquoise3",
-                                    "violetred3",
-                                    "goldenrod1",
-                                    "grey95")))
-
-png("~/MEGAsync/Snakebite modelling manuscripts/Snake distributions models/Snake models/Snakebites-best.png", width = 900, height = 1200)
-ggplot(combined.layers) + geom_raster(aes(x = x, y = y, fill = layer.3)) + 
-   scale_fill_gradientn(colours = popn.cols(100), na.value = "grey90") +
-   geom_polygon(data = sla,
-                aes(x=long, y=lat, group = group), 
-                fill=NA, color="grey50", size=3) +
-   coord_fixed(ratio = 1) +
-   labs(title = "Aggresiveness-weighted and adjusted (Snakebites)", fill = "", 
-        x = "", y = "") +
-   theme(axis.text = element_text(size = 20),
-         title = element_text(size = 28),
-         legend.key.height = unit(25, units = "mm"),
-         legend.key.width = unit(12, units = "mm"), 
-         legend.text =  element_text(size = 18),
-         panel.background = element_rect(colour = "grey20", fill = "grey20"))
-dev.off()
-
-png("~/MEGAsync/Snakebite modelling manuscripts/Snake distributions models/Snake models/Envenoming-best.png", width = 900, height = 1200)
-ggplot(combined.layers) + geom_raster(aes(x = x, y = y, fill = layer.4)) + 
-   scale_fill_gradientn(colours = popn.cols(100), na.value = "grey90") +
-   geom_polygon(data = sla,
-                aes(x=long, y=lat, group = group), 
-                fill=NA, color="grey50", size=3) +
-   coord_fixed(ratio = 1) +
-   labs(title = "Severity weighted and adjusted (Envenoming)", fill = "", 
-        x = "", y = "") +
-   theme(axis.text = element_text(size = 20),
-         title = element_text(size = 28),
-         legend.key.height = unit(25, units = "mm"),
-         legend.key.width = unit(12, units = "mm"), 
-         legend.text =  element_text(size = 18),
-         panel.background = element_rect(colour = "grey20", fill = "grey20"))
-dev.off()
-
-sp.cor.bite
-bites.cor.fin
-bite.ttest$corr
-
-sp.cor.env
-env.cor.fin
-env.ttest$corr
-
-sp.cor.bite.ab
-bites.cor.ab.fin
-bite.ab.ttest$corr
-
-sp.cor.env.ab
-env.cor.ab.fin
-env.ab.ttest$corr
-
-save.image("Data objects/Correlation tests.RData")
-
 #Testing association of full species ensemble
 
 snakes.full <- apply(snakes.samples, 1, sum)
@@ -480,25 +379,4 @@ full.cors.df <- foreach(i = seq_along(full.cors), .combine = rbind) %do% {
      D.F = x$dof))
 }
 
-write.csv(full.cors.df, "Snakes Fundamental niches/Full-combinations-correlations.csv")
-
-#Plots of the full combinations with the highest correlation with snakebite and envenoming
-
-bites.full.df <- na.omit(data.frame(bites.df[, c("x", "y")], snakes = snakes.full.ab.sev))
-
-png("~/MEGAsync/Snakebite modelling manuscripts/Snake distributions models/Snake models/Snakebites-best-all-species.png", width = 900, height = 1200)
-ggplot(bites.full.df) + geom_raster(aes(x = x, y = y, fill = snakes)) + 
-   scale_fill_gradientn(colours = popn.cols(100), na.value = "grey90") +
-   geom_polygon(data = sla,
-                aes(x=long, y=lat, group = group), 
-                fill=NA, color="grey50", size=3) +
-   coord_fixed(ratio = 1) +
-   labs(title = "Severity weighted and adjusted (snakebites)", fill = "", 
-        x = "", y = "") +
-   theme(axis.text = element_text(size = 20),
-         title = element_text(size = 28),
-         legend.key.height = unit(25, units = "mm"),
-         legend.key.width = unit(12, units = "mm"), 
-         legend.text =  element_text(size = 18),
-         panel.background = element_rect(colour = "grey20", fill = "grey20"))
-dev.off()
+write.csv(full.cors.df, "Full-combinations-correlations.csv")
